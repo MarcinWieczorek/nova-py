@@ -1,0 +1,5 @@
+novapy
+*.o
+*.py
+*.pyc
+
