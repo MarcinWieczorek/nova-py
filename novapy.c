@@ -137,11 +137,24 @@ static int OP_ARGC[150] = {
     /* [83] = 0, */
 };
 
+static char* TYPE_NAMES[150] = {
+    [0x28] = "TUPLE",
+    [0x46] = "FALSE",
+    [0x4E] = "NONE",
+    [0x52] = "STRREF",
+    [0x54] = "TRUE",
+    [0x63] = "CODEOBJECT",
+    [0x69] = "INT",
+    [0x73] = "STRING",
+    [0x74] = "INTERNED",
+    [0x75] = "UNICODE"
+};
+
 PyObject *pyc_read_object(FILE *fh) {
     /* struct pyc_py_object obj; */
     PyObject *obj = malloc(sizeof(PyObject));
     fread(&obj->type, 1, 1, fh);
-    fprintf(stderr, "Reading PyObject 0x%02hhX\n", obj->type);
+    fprintf(stderr, "Reading PyObject %s 0x%02hhX\n", TYPE_NAMES[obj->type], obj->type);
 
     switch(obj->type) {
         case TYPE_CODE_OBJECT: {
@@ -212,13 +225,22 @@ PyObject *pyc_read_object(FILE *fh) {
                 }
             }
 
+            // Read other objects
+            co->var_names = pyc_read_object(fh);
+            co->free_vars = pyc_read_object(fh);
+            co->cell_vars = pyc_read_object(fh);
+            co->filename = pyc_read_object(fh);
+            co->name = pyc_read_object(fh);
+            fread(&co->first_line_no, 4, 1, fh);
+            co->lnotab = pyc_read_object(fh);
+
             // Set data
             obj->data = co;
         } break;
         case TYPE_TUPLE: {
             struct pyc_tuple *tuple = malloc(sizeof(struct pyc_tuple));
             fread(&tuple->count, 4, 1, fh);
-            fprintf(stderr, "Tuple length: %d\n", tuple->count);
+            /* fprintf(stderr, "Tuple length: %d\n", tuple->count); */
             tuple->items = calloc(tuple->count, sizeof(void *));
             for(int i = 0; i < tuple->count; i++) {
                 tuple->items[i] = pyc_read_object(fh);

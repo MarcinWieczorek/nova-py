@@ -37,9 +37,11 @@ void print_pyc_py_object(struct pyc_py_object *obj, bool nl) {
             print_pyc_code_object(obj->data);
             break;
         case TYPE_STRING:
-        case TYPE_STRING_REF:
         case TYPE_INTERNED:
             fprintf(stderr, "'%s'", (char *) obj->data);
+            break;
+        case TYPE_STRING_REF:
+            fprintf(stderr, "STRREF #%d", *(int *) obj->data);
             break;
         case TYPE_NONE:
             fprintf(stderr, "None");

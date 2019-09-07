@@ -51,6 +51,13 @@ typedef struct pyc_code_object {
     PyObject *consts;
     PyObject *names;
     PyObject *names_value;
+    PyObject *var_names;
+    PyObject *free_vars;
+    PyObject *cell_vars;
+    PyObject *filename;
+    PyObject *name;
+    uint32_t first_line_no;
+    PyObject *lnotab;
 } CodeObject;
 
 
