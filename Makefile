@@ -9,3 +9,4 @@ all: novapy
 
 novapy: $(OBJ)
 	$(CC) -o novapy $^ $(CCFLAGS)
+

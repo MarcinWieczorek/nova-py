@@ -60,4 +60,3 @@ void print_pyc_py_object(struct pyc_py_object *obj, bool nl) {
     }
 }
 
-

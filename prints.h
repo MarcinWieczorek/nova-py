@@ -1,3 +1,4 @@
+#pragma once
 #include "novapy.h"
 
 void print_pyc_header(struct pyc_header *);

@@ -60,11 +60,18 @@ struct pyc_tuple {
 };
 
 PyObject *pyc_gen_string(char *);
+
 PyObject *pyc_gen_int(int);
+
 PyObject *pyc_gen_bool(bool);
+
 PyObject *pyc_gen_none();
 
 void pyc_free_tuple(struct pyc_tuple *);
+
 void pyc_free_Assembly(Assembly *);
+
 void pyc_free_CodeObject(CodeObject *);
+
 void pyc_free_PyObject(PyObject *);
+
