@@ -12,7 +12,7 @@ void print_pyc_header(struct pyc_header *h) {
 }
 
 void print_pyc_code_object(struct pyc_code_object *co) {
-    fprintf(stderr, "AC: %d, LC: %d, SS: %d, LEN: %u\n",
+    fprintf(stderr, "CODEOBJ(AC:%d, LC:%d, SS:%d, LEN:%u)\n",
         co->arg_count,
         co->local_count,
         co->stack_size,

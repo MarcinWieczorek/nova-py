@@ -352,6 +352,11 @@ void pyc_free_PyObject(PyObject *obj) {
 int main(int argc, char **argv) {
     FILE *fh = fopen(argv[1], "rb");
 
+    if(fh == NULL) {
+        fprintf(stderr, "Could not open file\n");
+        exit(EXIT_FAILURE);
+    }
+
     struct pyc_header header;
     fread(&header, sizeof(struct pyc_header), 1, fh);
     print_pyc_header(&header);
