@@ -7,7 +7,7 @@
 extern void (*opa[256])(Context *, uint16_t);
 char *OP_LABELS[150];
 
-void pyc_execute(PyObject *obj) {
+PyObject *pyc_execute(PyObject *obj) {
     CodeObject *co = obj->data;
     Context c;
     c.stack = calloc(co->stack_size, sizeof(PyObject *));
@@ -32,6 +32,11 @@ void pyc_execute(PyObject *obj) {
         }
         else {
             fprintf(stderr, "    not implemented\n");
+        }
+
+        if(op->op_code == 0x53) { // RETURN_VALUE
+            free(c.stack);
+            return c.ret;
         }
     }
 

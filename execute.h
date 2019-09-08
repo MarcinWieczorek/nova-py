@@ -9,7 +9,7 @@ typedef struct pyc_execute_context {
     PyObject *ret;
 } Context;
 
-void pyc_execute(PyObject *);
+PyObject *pyc_execute(PyObject *);
 
 void context_stack_push(Context *, PyObject *);
 

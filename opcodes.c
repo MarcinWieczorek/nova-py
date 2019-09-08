@@ -6,6 +6,10 @@
 #include "novapy.h"
 #include "execute.h"
 
+void POP_TOP(Context *c, uint16_t arg) {
+    context_stack_pop(c);
+}
+
 void BINARY_MULTIPLY(Context *c, uint16_t arg) {
     PyObject *lhs, *rhs;
     rhs = context_stack_pop(c);
@@ -85,6 +89,7 @@ void PRINT_ITEM(Context *c, uint16_t arg) {
     PyObject *obj = context_stack_pop(c);
     switch(obj->type) {
         case TYPE_STRING:
+        case TYPE_INTERNED:
             printf("%s", (char *) obj->data);
             break;
         case TYPE_INT:
@@ -92,6 +97,12 @@ void PRINT_ITEM(Context *c, uint16_t arg) {
             break;
         case TYPE_NONE:
             printf("None");
+            break;
+        case TYPE_CODE_OBJECT:
+            printf("<co:%s>", ((CodeObject *) obj->data)->name);
+            break;
+        default:
+            fprintf(stderr, "Invalid type for PRINT_ITEM: %02hhX\n", obj->type);
             break;
     }
 }
@@ -166,9 +177,9 @@ void CALL_FUNCTION(Context *c, uint16_t arg) {
     /* char *name = (char *) t->items[arg]->data; */
     PyObject *function = context_stack_pop(c);
     /* fprintf(stderr, "Type: %X\n", function->type); */
-    fprintf(stderr, "   (%s)\n", (char *) function->data);
 
     if(function->type == TYPE_INTERNAL_NATIVEFUNCTION) {
+        fprintf(stderr, "   <nfunction:%s>\n", (char *) function->data);
         /* fprintf(stderr, "Native function!\n"); */
         if(strcmp(function->data, "input") == 0) {
             printf((char *) args[0]->data);
@@ -187,13 +198,24 @@ void CALL_FUNCTION(Context *c, uint16_t arg) {
             }
         }
     }
+    else if(function->type == TYPE_CODE_OBJECT) {
+        struct pyc_code_object *co = function->data;
+        fprintf(stderr, "   <co:%s>\n", co->name->data);
+        context_stack_push(c, pyc_execute(function));
+    }
+}
+
+void MAKE_FUNCTION(Context *c, uint16_t arg) {
+    PyObject *tos = context_stack_pop(c);
+    /* print_pyc_py_object(tos); */
+    context_stack_push(c, tos);
 }
 
 void (*opa[256])(Context *, uint16_t) = {
     [0 ... 255] = NULL,
 
     /* [0] = &STOP_CODE, */
-    /* [1] = &POP_TOP, */
+    [1] = &POP_TOP,
     /* [2] = &ROT_TWO, */
     /* [3] = &ROT_THREE, */
     /* [4] = &DUP_TOP, */
@@ -298,7 +320,7 @@ void (*opa[256])(Context *, uint16_t) = {
     /* [126] = &DELETE_FAST, */
     /* [130] = &RAISE_VARARGS, */
     [131] = &CALL_FUNCTION,
-    /* [132] = &MAKE_FUNCTION, */
+    [132] = &MAKE_FUNCTION,
     /* [133] = &BUILD_SLICE, */
     /* [134] = &MAKE_CLOSURE, */
     /* [135] = &LOAD_CLOSURE, */

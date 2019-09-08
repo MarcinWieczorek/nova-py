@@ -255,7 +255,7 @@ PyObject *pyc_read_object(FILE *fh) {
             fread(str, length, 1, fh);
             str[length] = '\0';
             obj->data = str;
-            fprintf(stderr, "Created string: '%s'\n", str);
+            /* fprintf(stderr, "Created string: '%s'\n", str); */
         } break;
         /* case TYPE_STRING_REF: { */
         /*     #<{(| uint32_t index; |)}># */
@@ -328,6 +328,14 @@ void pyc_free_Assembly(Assembly *assembly) {
 void pyc_free_CodeObject(CodeObject *co) {
     pyc_free_Assembly(co->assembly);
     pyc_free_PyObject(co->consts);
+    pyc_free_PyObject(co->names);
+    free(co->names_value);
+    pyc_free_PyObject(co->var_names);
+    pyc_free_PyObject(co->free_vars);
+    pyc_free_PyObject(co->cell_vars);
+    pyc_free_PyObject(co->filename);
+    pyc_free_PyObject(co->name);
+    pyc_free_PyObject(co->lnotab);
     free(co);
 }
 
