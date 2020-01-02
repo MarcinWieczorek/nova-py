@@ -2,8 +2,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/types.h>
+#include <dirent.h>
 
 #include "novapy.h"
+#include "prints.h"
 #include "execute.h"
 
 void POP_TOP(Context *c, uint16_t arg) {
@@ -99,7 +102,7 @@ void PRINT_ITEM(Context *c, uint16_t arg) {
             printf("None");
             break;
         case TYPE_CODE_OBJECT:
-            printf("<co:%s>", ((CodeObject *) obj->data)->name);
+            printf("<co:%p>", ((CodeObject *) obj->data)->name);
             break;
         default:
             fprintf(stderr, "Invalid type for PRINT_ITEM: %02hhX\n", obj->type);
@@ -137,6 +140,32 @@ void LOAD_NAME(Context *c, uint16_t arg) {
 /*     print_pyc_py_object(context_stack_top(c)); */
 }
 
+void LOAD_ATTR(Context *c, uint16_t arg) {
+    CodeObject *co = c->obj->data;
+    PyObject *obj = context_stack_pop(c);
+    CodeObject *tos = obj->data;
+
+    struct pyc_tuple *context_names = co->names->data;
+    char *context_name = repr(context_names->items[arg]);
+    struct pyc_tuple *tos_names = tos->names->data;
+    int tos_name_index = -1;
+
+    for(int i = 0; i < tos_names->count; i++) {
+        if(strcmp(context_name, repr(tos_names->items[i])) == 0) {
+            tos_name_index = i;
+            break;
+        }
+    }
+
+    if(tos_name_index == -1) {
+        fprintf(stderr, "Invalid attr\n");
+        return;
+    }
+
+    PyObject *attr = &tos->names_value[tos_name_index];
+    context_stack_push(c, attr);
+}
+
 void COMPARE_OP(Context *c, uint16_t arg) {
     /* ('<', '<=', '==', '!=', '>', '>=', 'in', 'not in', 'is', 'is not', 'exception match', 'BAD') */
     PyObject *lhs, *rhs;
@@ -158,6 +187,59 @@ void COMPARE_OP(Context *c, uint16_t arg) {
     context_stack_push(c, pyc_gen_bool(false));
 }
 
+
+void IMPORT_NAME(Context *c, uint16_t arg) {
+    int path_count = 1;
+    char *path[] = {
+        "./lib/"
+    };
+
+    CodeObject *co = c->obj->data;
+    struct pyc_tuple *names = co->names->data;
+    char *name_orig = names->items[arg]->data;
+    char *name = malloc(strlen(name_orig) + 5);
+    strcpy(name, name_orig);
+    strcat(name, ".pyc");
+
+    char *import_path = NULL;
+    for(int i = 0; i < path_count; i++) {
+        bool found = false;
+        char *p = path[i];
+        struct dirent *dp;
+        DIR *dfd = opendir(p);
+        if(dfd != NULL) {
+            while((dp = readdir(dfd)) != NULL) {
+                if(strcmp(name, dp->d_name) == 0) {
+                    found = true;
+                    break;
+                }
+            }
+            closedir(dfd);
+        }
+
+        if(found) {
+            import_path = malloc(strlen(name) + strlen(p) + 2);
+            strcpy(import_path, p);
+            strcat(import_path, name);
+            fprintf(stderr, "\nImport path: '%s'", import_path);
+            break;
+        }
+    }
+
+    if(import_path == NULL) {
+        // This should raise ImportError
+        fprintf(stderr, "\nImportError");
+    }
+    else {
+        FILE *fh = fopen(import_path, "rb");
+        fseek(fh, sizeof(struct pyc_header), SEEK_SET);
+        PyObject *module = pyc_read_object(fh, NULL);
+        fclose(fh);
+        pyc_execute(module);
+        context_stack_push(c, module);
+    }
+}
+
 void POP_JUMP_IF_FALSE(Context *c, uint16_t arg) {
     if(context_stack_pop(c)->type == TYPE_FALSE) {
         c->ip = arg;
@@ -170,7 +252,6 @@ void CALL_FUNCTION(Context *c, uint16_t arg) {
 
     for(int i = 0; i < arg; i++) {
         args[i] = context_stack_pop(c);
-        /* print_pyc_py_object(args[i]); */
     }
 
     /* struct pyc_tuple *t = co->names->data; */
@@ -199,9 +280,10 @@ void CALL_FUNCTION(Context *c, uint16_t arg) {
         }
     }
     else if(function->type == TYPE_CODE_OBJECT) {
-        struct pyc_code_object *co = function->data;
-        fprintf(stderr, "   <co:%s>\n", co->name->data);
         context_stack_push(c, pyc_execute(function));
+    }
+    else {
+        fprintf(stderr, "\ninvalid function type! 0x%X", function->type);
     }
 }
 
@@ -300,9 +382,9 @@ void (*opa[256])(Context *, uint16_t) = {
     /* [103] = &BUILD_LIST, */
     /* [104] = &BUILD_SET, */
     /* [105] = &BUILD_MAP, */
-    /* [106] = &LOAD_ATTR, */
+    [106] = &LOAD_ATTR,
     [107] = &COMPARE_OP,
-    /* [108] = &IMPORT_NAME, */
+    [108] = &IMPORT_NAME,
     /* [109] = &IMPORT_FROM, */
     /* [110] = &JUMP_FORWARD, */
     /* [111] = &JUMP_IF_FALSE_OR_POP, */

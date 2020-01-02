@@ -38,6 +38,9 @@ typedef struct pyc_assembly {
 typedef struct pyc_py_object {
     uint8_t type;
     void *data;
+
+    // Parent PyObject
+    struct pyc_py_object *root;
 } PyObject;
 
 typedef struct pyc_code_object {
@@ -58,6 +61,10 @@ typedef struct pyc_code_object {
     PyObject *name;
     uint32_t first_line_no;
     PyObject *lnotab;
+
+    // Interned strings
+    int interned_strings_count;
+    PyObject **interned_strings;
 } CodeObject;
 
 
@@ -65,6 +72,8 @@ struct pyc_tuple {
     uint32_t count;
     struct pyc_py_object **items;
 };
+
+PyObject *pyc_read_object(FILE *, PyObject *);
 
 PyObject *pyc_gen_string(char *);
 

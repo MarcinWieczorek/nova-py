@@ -41,6 +41,7 @@ PyObject *pyc_execute(PyObject *obj) {
     }
 
     free(c.stack);
+    return NULL;
 }
 
 void context_stack_push(Context *c, PyObject *obj) {

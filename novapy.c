@@ -150,16 +150,20 @@ static char* TYPE_NAMES[150] = {
     [0x75] = "UNICODE"
 };
 
-PyObject *pyc_read_object(FILE *fh) {
+PyObject *pyc_read_object(FILE *fh, PyObject *root) {
     /* struct pyc_py_object obj; */
     PyObject *obj = malloc(sizeof(PyObject));
+    obj->root = root;
     fread(&obj->type, 1, 1, fh);
     fprintf(stderr, "Reading PyObject %s 0x%02hhX\n", TYPE_NAMES[obj->type], obj->type);
 
     switch(obj->type) {
         case TYPE_CODE_OBJECT: {
-            /* printf("Found code object! %d\n", sizeof(struct pyc_op_arg)); */
+            /* printf("Found code object! %lu\n", sizeof(struct pyc_op_arg)); */
             struct pyc_code_object *co = malloc(sizeof(*co));
+            obj->data = co;
+            co->interned_strings_count = 0;
+            co->interned_strings = calloc(16, sizeof(PyObject *));
             /* fread(&co, sizeof(struct pyc_code_object), 1, fh); */
             fread(&co->arg_count, 4, 1, fh);
             fread(&co->local_count, 4, 1, fh);
@@ -200,13 +204,14 @@ PyObject *pyc_read_object(FILE *fh) {
             }
 
             // Load consts
-            co->consts = pyc_read_object(fh);
+            fprintf(stderr, "-- START READING Consts\n");
+            co->consts = pyc_read_object(fh, obj);
             fprintf(stderr, "Consts: ");
             print_pyc_py_object(co->consts, true);
 
             // Load names
-            fprintf(stderr, "START READING Names\n");
-            co->names = pyc_read_object(fh);
+            fprintf(stderr, "-- START READING Names\n");
+            co->names = pyc_read_object(fh, obj);
             fprintf(stderr, "Names: ");
             print_pyc_py_object(co->names, true);
 
@@ -214,7 +219,6 @@ PyObject *pyc_read_object(FILE *fh) {
             struct pyc_tuple *names_tuple = co->names->data;
             co->names_value = calloc(names_tuple->count, sizeof(PyObject));
             for(int i = 0; i < names_tuple->count; i++) {
-                /* fprintf(stderr, "LNV %d: '%s'\n", i, names_tuple->items[i]->data); */
                 if(strcmp((char *) names_tuple->items[i]->data, "int") == 0
                         || strcmp((char *) names_tuple->items[i]->data, "input") == 0) {
                     co->names_value[i].type = TYPE_INTERNAL_NATIVEFUNCTION;
@@ -226,26 +230,29 @@ PyObject *pyc_read_object(FILE *fh) {
             }
 
             // Read other objects
-            co->var_names = pyc_read_object(fh);
-            co->free_vars = pyc_read_object(fh);
-            co->cell_vars = pyc_read_object(fh);
-            co->filename = pyc_read_object(fh);
-            co->name = pyc_read_object(fh);
+            /* fprintf(stderr, "-- START READING var_names\n"); */
+            co->var_names = pyc_read_object(fh, obj);
+            /* fprintf(stderr, "-- START READING free_vars\n"); */
+            co->free_vars = pyc_read_object(fh, obj);
+            /* fprintf(stderr, "-- START READING cell_vars\n"); */
+            co->cell_vars = pyc_read_object(fh, obj);
+            /* fprintf(stderr, "-- START READING filename\n"); */
+            co->filename = pyc_read_object(fh, obj);
+            /* fprintf(stderr, "-- START READING name\n"); */
+            co->name = pyc_read_object(fh, obj);
             fread(&co->first_line_no, 4, 1, fh);
-            co->lnotab = pyc_read_object(fh);
-
-            // Set data
-            obj->data = co;
+            /* fprintf(stderr, "-- START READING lnotab\n"); */
+            co->lnotab = pyc_read_object(fh, obj);
         } break;
         case TYPE_TUPLE: {
             struct pyc_tuple *tuple = malloc(sizeof(struct pyc_tuple));
+            obj->data = tuple;
             fread(&tuple->count, 4, 1, fh);
             /* fprintf(stderr, "Tuple length: %d\n", tuple->count); */
             tuple->items = calloc(tuple->count, sizeof(void *));
             for(int i = 0; i < tuple->count; i++) {
-                tuple->items[i] = pyc_read_object(fh);
+                tuple->items[i] = pyc_read_object(fh, obj);
             }
-            obj->data = tuple;
         } break;
         case TYPE_INTERNED:
         case TYPE_STRING: {
@@ -257,12 +264,6 @@ PyObject *pyc_read_object(FILE *fh) {
             obj->data = str;
             /* fprintf(stderr, "Created string: '%s'\n", str); */
         } break;
-        /* case TYPE_STRING_REF: { */
-        /*     #<{(| uint32_t index; |)}># */
-        /*     obj->data = malloc(4); */
-        /*     fread(&obj->data, 4, 1, fh); */
-        /*  */
-        /* } break; */
         case TYPE_NONE:
         case TYPE_TRUE:
         case TYPE_FALSE:
@@ -277,6 +278,17 @@ PyObject *pyc_read_object(FILE *fh) {
             fprintf(stderr, "Unknown PyObject type: 0x%02hhX\n", obj->type);
             obj->data = NULL;
             break;
+    }
+
+    if(obj->type == TYPE_INTERNED) {
+        PyObject *interned_root = root;
+        while(interned_root->root) {
+            interned_root = interned_root->root;
+        }
+
+        CodeObject *root_co = interned_root->data;
+        root_co->interned_strings[root_co->interned_strings_count] = obj;
+        root_co->interned_strings_count++;
     }
 
     return obj;
@@ -368,7 +380,7 @@ int main(int argc, char **argv) {
     struct pyc_header header;
     fread(&header, sizeof(struct pyc_header), 1, fh);
     print_pyc_header(&header);
-    PyObject *obj = pyc_read_object(fh);
+    PyObject *obj = pyc_read_object(fh, NULL);
     fprintf(stderr, "Execution starting!\n");
     pyc_execute(obj);
     pyc_free_PyObject(obj);
