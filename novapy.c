@@ -218,7 +218,7 @@ PyObject *pyc_read_object(FILE *fh, PyObject *root) {
             // Create names value array
             struct pyc_tuple *names_tuple = co->names->data;
             co->names_value = calloc(names_tuple->count, sizeof(PyObject));
-            for(int i = 0; i < names_tuple->count; i++) {
+            for(unsigned int i = 0; i < names_tuple->count; i++) {
                 if(strcmp((char *) names_tuple->items[i]->data, "int") == 0
                         || strcmp((char *) names_tuple->items[i]->data, "input") == 0) {
                     co->names_value[i].type = TYPE_INTERNAL_NATIVEFUNCTION;
@@ -250,7 +250,7 @@ PyObject *pyc_read_object(FILE *fh, PyObject *root) {
             fread(&tuple->count, 4, 1, fh);
             /* fprintf(stderr, "Tuple length: %d\n", tuple->count); */
             tuple->items = calloc(tuple->count, sizeof(void *));
-            for(int i = 0; i < tuple->count; i++) {
+            for(unsigned int i = 0; i < tuple->count; i++) {
                 tuple->items[i] = pyc_read_object(fh, obj);
             }
         } break;
@@ -324,7 +324,7 @@ PyObject *pyc_gen_bool(bool b) {
 }
 
 void pyc_free_tuple(struct pyc_tuple *tuple) {
-    for(int i = 0; i < tuple->count; i++) {
+    for(unsigned int i = 0; i < tuple->count; i++) {
         pyc_free_PyObject(tuple->items[i]);
     }
 
@@ -380,6 +380,12 @@ int main(int argc, char **argv) {
     struct pyc_header header;
     fread(&header, sizeof(struct pyc_header), 1, fh);
     print_pyc_header(&header);
+
+    if(header.version_magic != 0xF303) {
+        fprintf(stderr, "Invalid header\n");
+        exit(EXIT_FAILURE);
+    }
+
     PyObject *obj = pyc_read_object(fh, NULL);
     fprintf(stderr, "Execution starting!\n");
     pyc_execute(obj);

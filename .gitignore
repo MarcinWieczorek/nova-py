@@ -2,4 +2,5 @@ novapy
 *.o
 *.py
 *.pyc
+tags
 

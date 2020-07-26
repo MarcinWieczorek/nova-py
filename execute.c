@@ -5,9 +5,13 @@
 #include "novapy.h"
 
 extern void (*opa[256])(Context *, uint16_t);
-char *OP_LABELS[150];
+extern char *OP_LABELS[150];
 
 PyObject *pyc_execute(PyObject *obj) {
+    if(obj == NULL) {
+        return NULL;
+    }
+
     CodeObject *co = obj->data;
     Context c;
     c.stack = calloc(co->stack_size, sizeof(PyObject *));
