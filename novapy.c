@@ -224,6 +224,10 @@ PyObject *pyc_read_object(FILE *fh, PyObject *root) {
                     co->names_value[i].type = TYPE_INTERNAL_NATIVEFUNCTION;
                     co->names_value[i].data = names_tuple->items[i]->data;
                 }
+                else if(strcmp((char *) names_tuple->items[i]->data, "__name__") == 0) {
+                    co->names_value[i].type = TYPE_INTERNED;
+                    co->names_value[i].data = "__main__";
+                }
                 else {
                     co->names_value[i].type = TYPE_NONE;
                 }
