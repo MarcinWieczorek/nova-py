@@ -93,5 +93,10 @@ char *repr(PyObject *obj) {
             CodeObject *root_co = interned_root->data;
             return root_co->interned_strings[interned_string_index]->data;
         }
+        case TYPE_NONE:
+            return "None";
+        default:
+            return "INVALID_REPR_TYPE";
     }
+    return NULL;
 }

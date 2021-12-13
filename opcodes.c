@@ -171,20 +171,44 @@ void COMPARE_OP(Context *c, uint16_t arg) {
     PyObject *lhs, *rhs;
     rhs = context_stack_pop(c);
     lhs = context_stack_pop(c);
+    bool result;
+    bool error = false;
     switch(arg) {
         case 0: // <
-            if(lhs->type == TYPE_INT) {
+            if(lhs->type == TYPE_INT && rhs->type == TYPE_INT) {
                 int lhs_val = *(int *) lhs->data;
                 int rhs_val = *(int *) rhs->data;
-
-                context_stack_push(c, pyc_gen_bool(lhs_val < rhs_val));
-                return;
+                result = lhs_val < rhs_val;
+            }
+            else {
+                error = true;
+            }
+            break;
+        case 2: // ==
+            if(lhs->type == TYPE_INT && rhs->type == TYPE_INT) {
+                int lhs_val = *(int *) lhs->data;
+                int rhs_val = *(int *) rhs->data;
+                result = lhs_val == rhs_val;
+            }
+            else if(lhs->type == TYPE_NONE && rhs->type == TYPE_INTERNED) {
+                result = rhs->data == NULL || strlen(rhs->data) == 0;
+            }
+            else if(lhs->type == TYPE_INTERNED && rhs->type == TYPE_INTERNED) {
+                result = strcmp(lhs->data, rhs->data) == 0;
+            }
+            else {
+                error = true;
             }
             break;
     }
 
-    fprintf(stderr, "COMPARE_OP not implemented\n");
-    context_stack_push(c, pyc_gen_bool(false));
+    if(error) {
+        fprintf(stderr, "COMPARE_OP %d not implemented for type 0x%02X op 0x%02X\n", arg, lhs->type, rhs->type);
+        context_stack_push(c, pyc_gen_bool(false));
+    }
+    else {
+        context_stack_push(c, pyc_gen_bool(result));
+    }
 }
 
 
@@ -228,7 +252,7 @@ void IMPORT_NAME(Context *c, uint16_t arg) {
 
     if(import_path == NULL) {
         // This should raise ImportError
-        fprintf(stderr, "\nImportError");
+        fprintf(stderr, "!! ImportError: %s\n", name);
     }
     else {
         FILE *fh = fopen(import_path, "rb");
